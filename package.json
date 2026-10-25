@@ -1,0 +1,89 @@
+{
+	"name": "ownstream-plugin-tools",
+	"version": "0.1.1",
+	"publisher": "kuylar",
+	"engines": {
+		"vscode": "^1.100.0"
+	},
+	"license": "SEE LICENSE IN LICENSE",
+	"displayName": "OwnStream Plugin Tools",
+	"description": "Test OwnStream plugins directly from VSCode",
+	"categories": [
+		"Testing"
+	],
+	"keywords": ["OwnStream"],
+	"repository": {
+		"url": "https://github.com/OwnStream/code-plugin"
+	},
+	"main": "./out/extension.js",
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "ownstream-plugin-tools",
+					"title": "OwnStream Plugin Tools",
+					"icon": "$(beaker)"
+				}
+			]
+		},
+		"views": {
+			"ownstream-plugin-tools": [
+				{
+					"id": "pluginTree",
+					"name": "Plugin",
+					"type": "tree"
+				},
+				{
+					"id": "pluginPanel",
+					"name": "Tester",
+					"type": "webview"
+				},
+				{
+					"id": "metaEditor",
+					"name": "meta.json",
+					"type": "webview"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "ownstreamPluginTools.selectFolder",
+				"title": "OwnStream Plugin Tools: Select Plugin Folder",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "ownstreamPluginTools.runMethod",
+				"title": "OwnStream Plugin Tools: Run Method"
+			},
+			{
+				"command": "ownstreamPluginTools.showOutput",
+				"title": "OwnStream Plugin Tools: Show CLI Output",
+				"icon": "$(output)"
+			}
+		],
+		"configuration": {
+			"title": "OwnStream Plugin Tools",
+			"properties": {
+				"ownstreamPluginTools.cliPath": {
+					"type": "string",
+					"default": "OwnStream.PluginCli",
+					"description": "Path to the OwnStream CLI executable"
+				}
+			}
+		}
+	},
+	"activationEvents": [],
+	
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"lint": "eslint src --ext ts"
+	},
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"@types/vscode": "^1.100.0",
+		"@vscode/codicons": "^0.0.46-24",
+		"typescript": "^5.5.0"
+	}
+}
