@@ -251,10 +251,10 @@ function wrapTable(
 	</details>`;
 }
 
-function wrapImages(images: MetadataImage[] | undefined, title: string, imageClass: string): string {
+function wrapImages(images: MetadataImage[] | undefined, title: string, imageClass: string, indent: boolean = true): string {
 	if (!images || images.length == 0) return "";
 	log(JSON.stringify(images));
-	return `<div style="padding-left: 16px">
+	return `<div ${indent && `style="padding-left: 16px"`}>
 		<details>
 			<summary>${title} (${images.length})</summary>
 			<div class="image_gallery">
@@ -376,17 +376,36 @@ function renderSeasonMetadataResult(result: SeasonMetadataResult): string {
 	const poster = images.length > 0 ? images[0] : null;
 	const posterImg = poster
 		? `<img class="detail-poster" src="${esc(poster.url)}" alt="" />`
-		: "";
+		: `<img class="detail-poster placeholder"><span class="codicon codicon-file-media"></span></div>`;
+	const translationsMap: Record<string, (string | null)[]> = {};
+	Object.entries(result.titleTranslations ?? {}).forEach((x) => {
+		if (!Object.keys(translationsMap).includes(x[0]))
+			translationsMap[x[0]] = [x[0], null, null];
+		translationsMap[x[0]][1] = x[1];
+	});
+	Object.entries(result.descriptionTranslations ?? {}).forEach((x) => {
+		if (!Object.keys(translationsMap).includes(x[0]))
+			translationsMap[x[0]] = [x[0], null, null];
+		translationsMap[x[0]][2] = x[1];
+	});
+	const translations = Object.values(translationsMap).sort((x, y) =>
+		x[0]!.localeCompare(y[0]!),
+	);
 
-	return `<div class="result-view detail-view">
-    ${posterImg}
-    <div class="detail-body">
-      <h2 class="detail-title">${esc(result.title)}</h2>
-      <div class="detail-meta">
-      </div>
-      ${result.description ? `<p class="detail-desc">${esc(result.description)}</p>` : ""}
-    </div>
-  </div>`;
+	return `
+	<div class="result-view detail-view">
+		<div class="detail-body">
+			<div class="detail-header">
+				${posterImg}
+				<div>
+					<h2 class="detail-title">${esc(result.title)}</h2>
+				</div>
+			</div>
+			${result.description ? `<h2 class="detail-title">Description</h2><p class="detail-desc">${esc(result.description)}</p>` : ""}
+			${translations ? wrapTable(translations, "Translations", ["Locale", "Title", "Description"]) : ""}
+			${wrapImages(images, "Posters", "poster", false)}
+		</div>
+	</div>`;
 }
 
 function renderSeasonListResult(result: SeasonsListResult): string {
