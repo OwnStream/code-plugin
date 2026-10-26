@@ -9,7 +9,6 @@ import {
 	SeasonMetadataResult,
 	MetadataImage,
 } from "../types";
-import { log } from "../output";
 
 export interface TesterViewState {
 	method: PluginMethod | null;
@@ -151,30 +150,20 @@ export function renderLoading(method: string): string {
 }
 
 export function renderResult(result: Result): string {
-	// FIXME: remove the logging
-	let html = "";
 	switch (result.kind) {
 		case "search":
-			html = renderSearchResult(result);
-			break;
+			return renderSearchResult(result);
 		case "metadata":
-			html = renderMetadataResult(result);
-			break;
+			return renderMetadataResult(result);
 		case "episodeMetadata":
-			html = renderEpisodeMetadataResult(result);
-			break;
+			return renderEpisodeMetadataResult(result);
 		case "seasonMetadata":
-			html = renderSeasonMetadataResult(result);
-			break;
+			return renderSeasonMetadataResult(result);
 		case "seasonList":
-			html = renderSeasonListResult(result);
-			break;
+			return renderSeasonListResult(result);
 		case "error":
-			html = renderErrorResult(result);
-			break;
+			return renderErrorResult(result);
 	}
-	log(html);
-	return html;
 }
 
 function renderSearchResult(result: SearchResult): string {
@@ -253,7 +242,6 @@ function wrapTable(
 
 function wrapImages(images: MetadataImage[] | undefined, title: string, imageClass: string, indent: boolean = true): string {
 	if (!images || images.length == 0) return "";
-	log(JSON.stringify(images));
 	return `<div ${indent && `style="padding-left: 16px"`}>
 		<details>
 			<summary>${title} (${images.length})</summary>
@@ -357,16 +345,30 @@ function renderEpisodeMetadataResult(result: EpisodeMetadataResult): string {
 	const images = result.thumbnails ?? [];
 	const poster = images.length > 0 ? images[0] : null;
 	const posterImg = poster
-		? `<img class="detail-poster" src="${esc(poster.url)}" alt="" />`
+		? `<img class="detail-thumbnail" src="${esc(poster.url)}" alt="" />`
 		: "";
+	const translationsMap: Record<string, (string | null)[]> = {};
+	Object.entries(result.titleTranslations ?? {}).forEach((x) => {
+		if (!Object.keys(translationsMap).includes(x[0]))
+			translationsMap[x[0]] = [x[0], null, null];
+		translationsMap[x[0]][1] = x[1];
+	});
+	Object.entries(result.summaryTranslations ?? {}).forEach((x) => {
+		if (!Object.keys(translationsMap).includes(x[0]))
+			translationsMap[x[0]] = [x[0], null, null];
+		translationsMap[x[0]][2] = x[1];
+	});
+	const translations = Object.values(translationsMap).sort((x, y) =>
+		x[0]!.localeCompare(y[0]!),
+	);
 
 	return `<div class="result-view detail-view">
-    ${posterImg}
     <div class="detail-body">
-      <h2 class="detail-title">${esc(result.title)}</h2>
-      <div class="detail-meta">
-      </div>
+      ${posterImg}
+	  <h2 class="detail-title">${esc(result.title)}</h2>
       ${result.summary ? `<p class="detail-desc">${esc(result.summary)}</p>` : ""}
+	  ${translations ? wrapTable(translations, "Translations", ["Locale", "Title", "Summary"]) : ""}
+	  ${wrapImages(result.thumbnails, "Thumbnails", "thumbnail", false)}
     </div>
   </div>`;
 }
@@ -399,9 +401,9 @@ function renderSeasonMetadataResult(result: SeasonMetadataResult): string {
 				${posterImg}
 				<div>
 					<h2 class="detail-title">${esc(result.title)}</h2>
+					${result.description ? `<p class="detail-desc">${esc(result.description)}</p>` : ""}
 				</div>
 			</div>
-			${result.description ? `<h2 class="detail-title">Description</h2><p class="detail-desc">${esc(result.description)}</p>` : ""}
 			${translations ? wrapTable(translations, "Translations", ["Locale", "Title", "Description"]) : ""}
 			${wrapImages(images, "Posters", "poster", false)}
 		</div>
