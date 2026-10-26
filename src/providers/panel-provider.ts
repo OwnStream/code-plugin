@@ -8,6 +8,7 @@ import {
   renderLoading,
   renderResult,
 } from "../webview/html";
+import { log } from "../output";
 
 export class PanelProvider implements vscode.WebviewViewProvider {
   static readonly viewType = "pluginPanel";

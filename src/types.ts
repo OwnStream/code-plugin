@@ -189,7 +189,10 @@ export interface MetadataResult {
 	kind: "metadata";
 	title: string;
 	titleTranslations?: Record<string, string>;
+	tagline?: string;
+	taglineTranslations?: Record<string, string>;
 	description?: string;
+	descriptionTranslations?: Record<string, string>;
 	images?: {
 		poster?: MetadataImage[];
 		banner?: MetadataImage[];
@@ -224,6 +227,7 @@ export interface SeasonMetadataResult {
 export interface MetadataImage {
 	url: string;
 	locale?: string;
+	score?: number;
 }
 
 export interface SeasonsListResult {

@@ -7,7 +7,9 @@ import {
 	SeasonsListResult,
 	EpisodeMetadataResult,
 	SeasonMetadataResult,
+	MetadataImage,
 } from "../types";
+import { log } from "../output";
 
 export interface TesterViewState {
 	method: PluginMethod | null;
@@ -149,25 +151,38 @@ export function renderLoading(method: string): string {
 }
 
 export function renderResult(result: Result): string {
+	// FIXME: remove the logging
+	let html = "";
 	switch (result.kind) {
 		case "search":
-			return renderSearchResult(result);
+			html = renderSearchResult(result);
+			break;
 		case "metadata":
-			return renderMetadataResult(result);
+			html = renderMetadataResult(result);
+			break;
 		case "episodeMetadata":
-			return renderEpisodeMetadataResult(result);
+			html = renderEpisodeMetadataResult(result);
+			break;
 		case "seasonMetadata":
-			return renderSeasonMetadataResult(result);
+			html = renderSeasonMetadataResult(result);
+			break;
 		case "seasonList":
-			return renderSeasonListResult(result);
+			html = renderSeasonListResult(result);
+			break;
 		case "error":
-			return renderErrorResult(result);
+			html = renderErrorResult(result);
+			break;
 	}
+	log(html);
+	return html;
 }
 
 function renderSearchResult(result: SearchResult): string {
 	const items = result.items;
-	const method = result.type?.toLowerCase() === "tv" ? "metadata.getTv" : "metadata.getMovie";
+	const method =
+		result.type?.toLowerCase() === "tv"
+			? "metadata.getTv"
+			: "metadata.getMovie";
 
 	if (items.length === 0) {
 		return `<div class="empty-state">
@@ -209,34 +224,133 @@ function renderSearchResult(result: SearchResult): string {
   </div>`;
 }
 
+function wrapTable(
+	rows: (string | null)[][],
+	title: string,
+	columns: string[],
+): string {
+	if (rows.length == 0) return "";
+	return `<details>
+		<summary>${title} (${rows.length})</summary>
+		<table>
+			<thead>
+				<tr>
+					${columns.map((x) => `<th>${x}</th>`).join("")}
+				</tr>
+			</thead>
+			<tbody>
+				${rows
+					.map(
+						(x) => `<tr>
+						${x.map((d) => `<td>${d ? esc(d) : `<i>null</i>`}</td>`).join("")}
+					</tr>`,
+					)
+					.join("")}
+			</tbody>
+		</table>
+	</details>`;
+}
+
+function wrapImages(images: MetadataImage[] | undefined, title: string, imageClass: string): string {
+	if (!images || images.length == 0) return "";
+	log(JSON.stringify(images));
+	return `<div style="padding-left: 16px">
+		<details>
+			<summary>${title} (${images.length})</summary>
+			<div class="image_gallery">
+				${images
+					.sort((a, b) => {
+						const aMissing = a.locale == null;
+						const bMissing = b.locale == null;
+
+						const aScore = a.score ?? 1;
+						const bScore = b.score ?? 1;
+						let scoreCompare = bScore - aScore
+						scoreCompare = scoreCompare > 0 ? 1 : scoreCompare < 0 ? -1 : 0;
+
+						if (aMissing !== bMissing) return aMissing ? -1 : 1;
+						if (aMissing) return scoreCompare;
+
+						const localeCompare = a.locale?.localeCompare(b.locale || "") || 0;
+
+						return localeCompare || scoreCompare;
+					})
+					.map(
+						(x) => `<div class="localized_image ${imageClass}">
+						<img src="${x.url}" alt=""/>
+						<div style="display:flex;flex-direction:row;gap:4px;padding-top:4px;justify-content:center;">
+							<span class="badge">${x.locale ? x.locale : "<i>No locale</i>"}</span>
+							${x.score != undefined ? `<span class="badge">${(x.score * 100).toFixed(0)}%</span>` : ""}
+						</div>
+					</div>`,
+					)
+					.join("")}
+			</div>
+		</details>
+	</div>`;
+}
+
 function renderMetadataResult(result: MetadataResult): string {
 	const images = result.images?.poster ?? [];
 	const poster = images.length > 0 ? images[0] : null;
 	const posterImg = poster
 		? `<img class="detail-poster" src="${esc(poster.url)}" alt="" />`
-		: "";
+		: `<img class="detail-poster placeholder"><span class="codicon codicon-file-media"></span></div>`;
 	const year = result.releaseDate ?? "";
 	const finish = result.finishDate ? ` - ${result.finishDate}` : "";
-	const ratings = result.ageRatings
-		? Object.entries(result.ageRatings)
-				.map(
-					([k, v]) =>
-						`<span class="badge">${esc(k.toUpperCase())}: ${esc(v)}</span>`,
-				)
-				.join("")
-		: "";
+	const ratings = result.ageRatings ? Object.entries(result.ageRatings) : [];
+	const translationsMap: Record<string, (string | null)[]> = {};
+	Object.entries(result.titleTranslations ?? {}).forEach((x) => {
+		if (!Object.keys(translationsMap).includes(x[0]))
+			translationsMap[x[0]] = [x[0], null, null, null];
+		translationsMap[x[0]][1] = x[1];
+	});
+	Object.entries(result.taglineTranslations ?? {}).forEach((x) => {
+		if (!Object.keys(translationsMap).includes(x[0]))
+			translationsMap[x[0]] = [x[0], null, null, null];
+		translationsMap[x[0]][2] = x[1];
+	});
+	Object.entries(result.descriptionTranslations ?? {}).forEach((x) => {
+		if (!Object.keys(translationsMap).includes(x[0]))
+			translationsMap[x[0]] = [x[0], null, null, null];
+		translationsMap[x[0]][3] = x[1];
+	});
+	const translations = Object.values(translationsMap).sort((x, y) =>
+		x[0]!.localeCompare(y[0]!),
+	);
+	const showImages = result.images != null &&
+		((result.images.poster?.length || 0) > 0 ||
+		(result.images.banner?.length || 0) > 0 ||
+		(result.images.logo?.length || 0) > 0 ||
+		(result.images.backdrop?.length || 0) > 0 ||
+		(result.images.thumbnail?.length || 0) > 0);
 
-	return `<div class="result-view detail-view">
-    ${posterImg}
-    <div class="detail-body">
-      <h2 class="detail-title">${esc(result.title)}</h2>
-      <div class="detail-meta">
-        ${year ? `<span>${esc(year + finish)}</span>` : ""}
-        ${ratings}
-      </div>
-      ${result.description ? `<p class="detail-desc">${esc(result.description)}</p>` : ""}
-    </div>
-  </div>`;
+	return `
+	<div class="result-view detail-view">
+		<div class="detail-body">
+			<div class="detail-header">
+				${posterImg}
+				<div>
+					<h2 class="detail-title">${esc(result.title)}</h2>
+					${result.tagline ? `<p class="detail-tagline">${esc(result.tagline)}</p>` : ""}
+					<div class="detail-meta">
+						<span>${year ? `<span>${esc(year + finish)}</span>` : ""}</span>
+					</div>
+				</div>
+			</div>
+			${result.description ? `<h2 class="detail-title">Description</h2><p class="detail-desc">${esc(result.description)}</p>` : ""}
+			${translations ? wrapTable(translations, "Translations", ["Locale", "Title", "Tagline", "Description"]) : ""}
+			${ratings ? wrapTable(ratings, "Age Ratings", ["Locale", "Rating"]) : ""}
+			${showImages ? `<details>
+				<summary>Images</summary>
+				${wrapImages(result.images!.poster, "Posters", "poster")}
+				${wrapImages(result.images!.banner, "Banners", "banner")}
+				${wrapImages(result.images!.logo, "Logos", "thumbnail")}
+				${wrapImages(result.images!.backdrop, "Backdrops", "thumbnail")}
+				${wrapImages(result.images!.thumbnail, "Thumbnails", "thumbnail")}
+			</details>` : ""}
+		</div>
+	</div>`;
 }
 
 function renderEpisodeMetadataResult(result: EpisodeMetadataResult): string {
@@ -338,119 +452,360 @@ function getNonce(): string {
 
 function styles(): string {
 	return `
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      color: var(--vscode-sideBar-foreground);
-      background: var(--vscode-sideBar-background);
-      padding: 8px;
-    }
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
 
-    .empty-state { text-align: center; padding: 32px 16px; }
-    .empty-icon .codicon { font-size: 48px; color: var(--vscode-descriptionForeground); }
-    .empty-title { font-size: 14px; font-weight: 600; margin-top: 12px; }
-    .empty-desc { font-size: 12px; color: var(--vscode-descriptionForeground); margin-top: 4px; }
+		body {
+			font-family: var(--vscode-font-family);
+			font-size: var(--vscode-font-size);
+			color: var(--vscode-sideBar-foreground);
+			background: var(--vscode-sideBar-background);
+			padding: 8px;
+		}
 
-    .input-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-    .input-header .codicon { font-size: 16px; color: var(--vscode-descriptionForeground); }
-    .input-title { font-weight: 600; font-size: 13px; }
-    .input-desc { font-size: 12px; color: var(--vscode-descriptionForeground); margin-bottom: 12px; }
+		.empty-state {
+			text-align: center;
+			padding: 32px 16px;
+		}
 
-    .form-group { margin-bottom: 10px; }
-    .form-label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; }
-    .form-input, .form-select {
-      width: 100%; padding: 4px 8px;
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      color: var(--vscode-input-foreground);
-      background: var(--vscode-input-background);
-      border: 1px solid var(--vscode-input-border);
-      border-radius: 2px;
-      outline: none;
-    }
-    .form-input:focus, .form-select:focus {
-      border-color: var(--vscode-focusBorder);
-    }
-    .form-button {
-      width: 100%; padding: 6px 12px; margin-top: 4px;
-      font-family: var(--vscode-font-family);
-      font-size: var(--vscode-font-size);
-      color: var(--vscode-button-foreground);
-      background: var(--vscode-button-background);
-      border: none; border-radius: 2px;
-      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
-    }
-    .form-button:hover { background: var(--vscode-button-hoverBackground); }
-    .form-button .codicon { font-size: 14px; }
+		.empty-icon .codicon {
+			font-size: 48px;
+			color: var(--vscode-descriptionForeground);
+		}
 
-    #results { margin-top: 12px; border-top: 1px solid var(--vscode-widget-border); padding-top: 12px; }
+		.empty-title {
+			font-size: 14px;
+			font-weight: 600;
+			margin-top: 12px;
+		}
 
-    .loading-state { text-align: center; padding: 32px 16px; }
-    .loading-state p { margin-top: 8px; color: var(--vscode-descriptionForeground); font-size: 12px; }
-    .loading-spinner {
-      width: 24px; height: 24px; margin: 0 auto;
-      border: 2px solid var(--vscode-descriptionForeground);
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+		.empty-desc {
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
+			margin-top: 4px;
+		}
 
-    .result-header { margin-bottom: 8px; }
-    .result-count { font-size: 12px; color: var(--vscode-descriptionForeground); }
+		.input-header {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			margin-bottom: 4px;
+		}
 
-    .result-grid { display: flex; flex-direction: column; gap: 4px; }
-    .card {
-      display: flex; gap: 8px; padding: 6px;
-      border: 1px solid var(--vscode-widget-border);
-      border-radius: 4px; cursor: pointer;
-      transition: background 0.1s;
-    }
-    .card:hover { background: var(--vscode-list-hoverBackground); }
-    .card-poster {
-      width: 48px; height: 64px; object-fit: cover;
-      border-radius: 2px; flex-shrink: 0;
-    }
-    .card-poster.placeholder {
-      display: flex; align-items: center; justify-content: center;
-      background: var(--vscode-widget-border);
-    }
-    .card-poster.placeholder .codicon { font-size: 20px; color: var(--vscode-descriptionForeground); }
-    .card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-    .card-title {
-      font-size: 12px; font-weight: 600;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .card-subtitle {
-      font-size: 11px; color: var(--vscode-descriptionForeground);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .card-meta { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 2px; }
+		.input-header .codicon {
+			font-size: 16px;
+			color: var(--vscode-descriptionForeground);
+		}
 
-    .detail-poster {
-      width: 100%; max-height: 200px; object-fit: cover;
-      border-radius: 4px; margin-bottom: 8px;
-    }
-    .detail-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-    .detail-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-    .detail-meta span { font-size: 11px; color: var(--vscode-descriptionForeground); }
-    .badge {
-      font-size: 10px; padding: 1px 6px;
-      background: var(--vscode-badge-background);
-      color: var(--vscode-badge-foreground);
-      border-radius: 8px;
-    }
-    .detail-desc { font-size: 12px; line-height: 1.5; }
+		.input-title {
+			font-weight: 600;
+			font-size: 13px;
+		}
 
-    .error-state { text-align: center; padding: 16px; }
-    .error-icon .codicon { font-size: 32px; color: var(--vscode-errorForeground); }
-    .error-msg { margin-top: 8px; font-size: 12px; color: var(--vscode-errorForeground); }
-    .error-raw {
-      text-align: left; margin-top: 8px; padding: 8px;
-      background: var(--vscode-textCodeBlock-background);
-      border-radius: 4px; font-size: 11px;
-      overflow-x: auto; white-space: pre-wrap; word-break: break-all;
-    }
+		.input-desc {
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
+			margin-bottom: 12px;
+		}
+
+		.form-group {
+			margin-bottom: 10px;
+		}
+
+		.form-label {
+			display: block;
+			font-size: 12px;
+			font-weight: 500;
+			margin-bottom: 4px;
+		}
+
+		.form-input, .form-select {
+			width: 100%;
+			padding: 4px 8px;
+			font-family: var(--vscode-font-family);
+			font-size: var(--vscode-font-size);
+			color: var(--vscode-input-foreground);
+			background: var(--vscode-input-background);
+			border: 1px solid var(--vscode-input-border);
+			border-radius: 2px;
+			outline: none;
+		}
+
+		.form-input:focus, .form-select:focus {
+			border-color: var(--vscode-focusBorder);
+		}
+
+		.form-button {
+			width: 100%;
+			padding: 6px 12px;
+			margin-top: 4px;
+			font-family: var(--vscode-font-family);
+			font-size: var(--vscode-font-size);
+			color: var(--vscode-button-foreground);
+			background: var(--vscode-button-background);
+			border: none;
+			border-radius: 2px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 4px;
+		}
+
+		.form-button:hover {
+			background: var(--vscode-button-hoverBackground);
+		}
+
+		.form-button .codicon {
+			font-size: 14px;
+		}
+
+		#results {
+			margin-top: 12px;
+			border-top: 1px solid var(--vscode-widget-border);
+			padding-top: 12px;
+		}
+
+		.loading-state {
+			text-align: center;
+			padding: 32px 16px;
+		}
+
+		.loading-state p {
+			margin-top: 8px;
+			color: var(--vscode-descriptionForeground);
+			font-size: 12px;
+		}
+
+		.loading-spinner {
+			width: 24px;
+			height: 24px;
+			margin: 0 auto;
+			border: 2px solid var(--vscode-descriptionForeground);
+			border-top-color: transparent;
+			border-radius: 50%;
+			animation: spin 0.8s linear infinite;
+		}
+
+		@keyframes spin {
+			to {
+				transform: rotate(360deg);
+			}
+		}
+
+		.result-header {
+			margin-bottom: 8px;
+		}
+
+		.result-count {
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
+		}
+
+		.result-grid {
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+		}
+
+		.card {
+			display: flex;
+			gap: 8px;
+			padding: 6px;
+			border: 1px solid var(--vscode-widget-border);
+			border-radius: 4px;
+			cursor: pointer;
+			transition: background 0.1s;
+		}
+
+		.card:hover {
+			background: var(--vscode-list-hoverBackground);
+		}
+
+		.card-poster {
+			width: 48px;
+			height: 64px;
+			object-fit: cover;
+			border-radius: 2px;
+			flex-shrink: 0;
+		}
+
+		.card-poster.placeholder {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: var(--vscode-widget-border);
+		}
+
+		.card-poster.placeholder .codicon {
+			font-size: 20px;
+			color: var(--vscode-descriptionForeground);
+		}
+
+		.card-info {
+			flex: 1;
+			min-width: 0;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+		}
+
+		.card-title {
+			font-size: 12px;
+			font-weight: 600;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.card-subtitle {
+			font-size: 11px;
+			color: var(--vscode-descriptionForeground);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.card-meta {
+			font-size: 11px;
+			color: var(--vscode-descriptionForeground);
+			margin-top: 2px;
+		}
+
+		.detail-header {
+			display: flex;
+			flex-direction: row;
+			gap: 12px;
+		}
+
+		.detail-poster {
+			width: 40%;
+			aspect-ratio: 2/3;
+			max-width: 150px;
+			object-fit: cover;
+			border-radius: 4px;
+			margin-bottom: 8px;
+		}
+
+		.detail-title {
+			font-size: 14px;
+			font-weight: 600;
+			margin-bottom: 4px;
+		}
+
+		.detail-tagline {
+			font-size: 13px;
+			font-weight: 400;
+			font-style: italic;
+			margin-bottom: 4px;
+		}
+
+		.detail-meta {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px;
+			margin-bottom: 8px;
+		}
+
+		.detail-meta span {
+			font-size: 11px;
+			color: var(--vscode-descriptionForeground);
+		}
+
+		.badge {
+			font-size: 10px;
+			padding: 1px 6px;
+			background: var(--vscode-badge-background);
+			color: var(--vscode-badge-foreground);
+			border-radius: 8px;
+		}
+
+		.detail-desc {
+			font-size: 12px;
+			line-height: 1.5;
+		}
+
+		.error-state {
+			text-align: center;
+			padding: 16px;
+		}
+
+		.error-icon .codicon {
+			font-size: 32px;
+			color: var(--vscode-errorForeground);
+		}
+
+		.error-msg {
+			margin-top: 8px;
+			font-size: 12px;
+			color: var(--vscode-errorForeground);
+		}
+
+		.error-raw {
+			text-align: left;
+			margin-top: 8px;
+			padding: 8px;
+			background: var(--vscode-textCodeBlock-background);
+			border-radius: 4px;
+			font-size: 11px;
+			overflow-x: auto;
+			white-space: pre-wrap;
+			word-break: break-all;
+		}
+
+		table {
+			border-collapse: collapse;
+		}
+
+		tr:nth-child(even) {
+			background: var(--vscode-badge-background);
+			color: var(--vscode-badge-foreground);
+		}
+
+		td {
+			border-top: 1px solid var(--vscode-badge-foreground);
+			padding: 4px 0;
+		}
+
+		summary {
+			font-weight: bold;
+			padding: 8px 0;
+			cursor: pointer;
+		}
+
+		.image_gallery {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+		}
+
+		.localized_image {
+			display: flex;
+			flex-direction: column;
+		}
+
+		.localized_image > span {
+			text-align: center;
+		}
+
+		.localized_image > img {
+			max-height: 150px;
+			object-fit: contain;
+		}
+
+		.localized_image.poster > img {
+			aspect-ratio: 2/3;
+		}
+
+		.localized_image.banner > img {
+			aspect-ratio: 5/1;
+		}
+
+		.localized_image.thumbnail > img {
+			aspect-ratio: 16/9;
+		}
   `;
 }
