@@ -7,9 +7,7 @@ type TreeNode = PluginInfoNode | MethodNode | EmptyNode;
 class PluginInfoNode extends vscode.TreeItem {
   constructor(meta: PluginMeta) {
     super(meta.name, vscode.TreeItemCollapsibleState.Expanded);
-    if (meta.version) {
-      this.description = `v${meta.version.name}`;
-    }
+    this.description = `${meta.id} - v${meta.version?.name}`;
     this.contextValue = "pluginInfo";
     this.iconPath = new vscode.ThemeIcon("package");
   }
