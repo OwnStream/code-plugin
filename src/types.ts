@@ -1,26 +1,27 @@
 export interface PluginMeta {
+	id: string;
 	name: string;
 	version: { name: string; code: number };
+	index: string;
 	image?: string | null;
 	permissions?: string[];
 	features?: string[];
 	homepage?: string | null;
 	source?: string | null;
 	issues?: string | null;
-	autoUpdater?: { source: string; params?: Record<string, string> } | null;
+	autoUpdater?: { type: string; params?: Record<string, string> } | null;
 }
 
 export type PluginFeature =
 	| "metadata.search"
-	| "metadata.get.movie"
-	| "metadata.get.tv"
-	| "metadata.get.season"
-	| "metadata.get.tv.seasons"
-	| "metadata.get.episode";
+	| "metadata.getMovie"
+	| "metadata.getTv"
+	| "metadata.getTvSeasons"
+	| "metadata.getTvSeason"
+	| "metadata.getTvEpisode";
 
 export interface PluginMethod {
-	id: string;
-	feature: PluginFeature;
+	id: PluginFeature;
 	label: string;
 	description: string;
 	params: MethodParamDef[];
@@ -38,7 +39,6 @@ export interface MethodParamDef {
 export const METHOD_REGISTRY: Record<PluginFeature, PluginMethod> = {
 	"metadata.search": {
 		id: "metadata.search",
-		feature: "metadata.search",
 		label: "Search",
 		description: "Search for media by title",
 		params: [
@@ -65,9 +65,8 @@ export const METHOD_REGISTRY: Record<PluginFeature, PluginMethod> = {
 			},
 		],
 	},
-	"metadata.get.movie": {
+	"metadata.getMovie": {
 		id: "metadata.getMovie",
-		feature: "metadata.get.movie",
 		label: "Get Movie",
 		description: "Fetch metadata for a movie by ID",
 		params: [
@@ -80,9 +79,8 @@ export const METHOD_REGISTRY: Record<PluginFeature, PluginMethod> = {
 			},
 		],
 	},
-	"metadata.get.tv": {
+	"metadata.getTv": {
 		id: "metadata.getTv",
-		feature: "metadata.get.tv",
 		label: "Get TV Show",
 		description: "Fetch metadata for a TV show by ID",
 		params: [
@@ -95,9 +93,8 @@ export const METHOD_REGISTRY: Record<PluginFeature, PluginMethod> = {
 			},
 		],
 	},
-	"metadata.get.tv.seasons": {
-		id: "metadata.getSeasons",
-		feature: "metadata.get.tv.seasons",
+	"metadata.getTvSeasons": {
+		id: "metadata.getTvSeasons",
 		label: "Get TV Seasons",
 		description: "List all seasons of a TV show by ID",
 		params: [
@@ -110,9 +107,8 @@ export const METHOD_REGISTRY: Record<PluginFeature, PluginMethod> = {
 			},
 		],
 	},
-	"metadata.get.season": {
-		id: "metadata.getSeason",
-		feature: "metadata.get.season",
+	"metadata.getTvSeason": {
+		id: "metadata.getTvSeason",
 		label: "Get Season",
 		description: "Fetch metadata for a season by ID",
 		params: [
@@ -132,9 +128,8 @@ export const METHOD_REGISTRY: Record<PluginFeature, PluginMethod> = {
 			},
 		],
 	},
-	"metadata.get.episode": {
-		id: "metadata.getEpisode",
-		feature: "metadata.get.episode",
+	"metadata.getTvEpisode": {
+		id: "metadata.getTvEpisode",
 		label: "Get Episode",
 		description:
 			"Fetch metadata for an episode by show ID, season, and episode index",
@@ -232,11 +227,11 @@ export interface MetadataImage {
 
 export interface SeasonsListResult {
 	kind: "seasonList";
+	contentId?: string;
 	items: Season[];
 }
 
 export interface Season {
-	id: string;
 	index: number;
 	name: string;
 	posters: MetadataImage[];

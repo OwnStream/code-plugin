@@ -57,7 +57,7 @@ export class PanelProvider implements vscode.WebviewViewProvider {
             type: "setLoading",
             html: renderLoading(method.label),
           });
-          await runMethod(method.feature, method.id, msg.params);
+          await runMethod(method.id, msg.params);
           break;
         }
         case "selectResult": {

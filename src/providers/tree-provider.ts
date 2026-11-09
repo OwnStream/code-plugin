@@ -24,15 +24,15 @@ class MethodNode extends vscode.TreeItem {
     this.description = method.description;
     this.contextValue = "method";
 
-    const iconMap: Record<string, string> = {
+    const iconMap: Record<PluginFeature, string> = {
       "metadata.search": "search",
-      "metadata.get.movie": "device-camera-video",
-      "metadata.get.tv": "device-desktop",
-      "metadata.get.tv.seasons": "list-ordered",
-      "metadata.get.season": "list-tree",
-      "metadata.get.episode": "play-circle",
+      "metadata.getMovie": "device-camera-video",
+      "metadata.getTv": "device-desktop",
+      "metadata.getTvSeasons": "list-ordered",
+      "metadata.getTvSeason": "list-tree",
+      "metadata.getTvEpisode": "play-circle",
     };
-    this.iconPath = new vscode.ThemeIcon(iconMap[method.feature] || "symbol-method");
+    this.iconPath = new vscode.ThemeIcon(iconMap[method.id] || "symbol-method");
 
     this.command = {
       command: "ownstreamPluginTools.runMethod",

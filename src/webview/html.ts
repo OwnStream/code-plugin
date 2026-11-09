@@ -424,7 +424,7 @@ function renderSeasonListResult(result: SeasonsListResult): string {
 			const posterImg = item.posters
 				? `<img class="card-poster" src="${esc(item.posters[0].url)}" alt="" />`
 				: `<div class="card-poster placeholder"><span class="codicon codicon-file-media"></span></div>`;
-			return `<div class="card" data-action="selectResult" data-method="metadata.getSeason" data-id="${esc(item.id)}" data-season="${item.index}">
+			return `<div class="card" data-action="selectResult" data-method="metadata.getTvSeason" data-id="${esc(result.contentId!!)}" data-season="${item.index}">
 				${posterImg}
 				<div class="card-info">
 				<div class="card-title">Season ${item.index}</div>

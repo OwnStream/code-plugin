@@ -7,8 +7,7 @@ import { log, logSection } from "./output";
 let activeProcess: ChildProcess | null = null;
 
 export async function runMethod(
-	feature: PluginFeature,
-	methodId: string,
+	methodId: PluginFeature,
 	params: Record<string, string>,
 ): Promise<Result> {
 	const cliPath = getCliPath();
@@ -86,7 +85,7 @@ export async function runMethod(
 					resolve(result);
 					return;
 				}
-				const result = normalizeResult(feature, parsed.result, params);
+				const result = normalizeResult(methodId, parsed.result, params);
 				state.setResult(result);
 				resolve(result);
 			} catch {
@@ -132,8 +131,8 @@ function normalizeResult(
 	}
 
 	if (
-		feature === "metadata.get.movie" ||
-		feature === "metadata.get.tv"
+		feature === "metadata.getMovie" ||
+		feature === "metadata.getTv"
 	) {
 		return {
 			kind: "metadata",
@@ -150,7 +149,7 @@ function normalizeResult(
 		};
 	}
 
-	if (feature === "metadata.get.episode") {
+	if (feature === "metadata.getTvEpisode") {
 		return {
 			kind: "episodeMetadata",
 			title: raw.title ?? "",
@@ -161,7 +160,7 @@ function normalizeResult(
 		};
 	}
 
-	if (feature === "metadata.get.season") {
+	if (feature === "metadata.getTvSeason") {
 		return {
 			kind: "seasonMetadata",
 			title: raw.title ?? "",
@@ -172,9 +171,10 @@ function normalizeResult(
 		};
 	}
 
-	if (feature === "metadata.get.tv.seasons") {
+	if (feature === "metadata.getTvSeasons") {
 		return {
 			kind: "seasonList",
+			contentId: params.id,
 			items: raw,
 		};
 	}
